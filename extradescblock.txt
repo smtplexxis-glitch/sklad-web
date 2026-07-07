@@ -1,0 +1,23 @@
+function ExtraDescBlock({ labelAvito, labelDrom, btnLabel, okLabel }) {
+  const [vals, setVals] = React.useState({ avito: '', drom: '' });
+  const [saved, setSaved] = React.useState(false);
+  React.useEffect(() => { api.get('/refs/feed-extra-desc').then(r => setVals({ avito: r.data.avito || '', drom: r.data.drom || '' })); }, []);
+  async function save() {
+    await api.post('/refs/feed-extra-desc', vals);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div className="fg">
+        <label className="flabel">{labelAvito}</label>
+        <textarea className="finput" rows="3" value={vals.avito} onChange={e => setVals(v => ({ ...v, avito: e.target.value }))} />
+      </div>
+      <div className="fg">
+        <label className="flabel">{labelDrom}</label>
+        <textarea className="finput" rows="3" value={vals.drom} onChange={e => setVals(v => ({ ...v, drom: e.target.value }))} />
+      </div>
+      <button className="btn-dark" onClick={save}>{saved ? okLabel : btnLabel}</button>
+    </div>
+  );
+}
