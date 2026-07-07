@@ -1,0 +1,26 @@
+router.post('/:id/returns', async (req,res,next) => {
+  try {
+    const { id } = req.params;
+    const { item_id, reason, amount, comment } = req.body;
+    const amt = parseFloat(String(amount).replace(',', '.')) || 0;
+    const resolution = reason === 'wrong' ? 'returned' : null;
+    const [r] = await db.query(
+      'INSERT INTO deal_returns (deal_id, item_id, reason, amount, comment, created_by, resolution, resolved_at) VALUES (?,?,?,?,?,?,?,?)',
+      [id, item_id || null, reason, amt, comment || null, req.user?.id || 1, resolution, resolution ? new Date() : null]
+    );
+    await db.query('UPDATE deals SET paid=GREATEST(COALESCE(paid,0)-?,0) WHERE id=?', [amt, id]);
+    if (item_id) {
+      const [[item]] = await db.query('SELECT product_id FROM deal_items WHERE id=?', [item_id]);
+      if (item) {
+        const newStatus = reason === 'wrong' ? 'in_stock' : 'return';
+        await db.query('UPDATE products SET status=? WHERE id=?', [newStatus, item.product_id]);
+      }
+    }
+    const [[itemCountRow]] = await db.query('SELECT COUNT(*) cnt FROM deal_items WHERE deal_id=?', [id]);
+    const [[retCountRow]] = await db.query('SELECT COUNT(DISTINCT item_id) cnt FROM deal_returns WHERE deal_id=? AND item_id IS NOT NULL', [id]);
+    if (itemCountRow.cnt > 0 && retCountRow.cnt >= itemCountRow.cnt) {
+      await db.query("UPDATE deals SET status='completed' WHERE id=?", [id]);
+    }
+    res.json({ ok: true, id: r.insertId });
+  } catch(e) { next(e); }
+});
